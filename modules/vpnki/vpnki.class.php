@@ -179,11 +179,14 @@ function usual(&$out) {
  function connect() {
      safe_exec('pptpsetup --delete vpnki');
      safe_exec('pptpsetup --create vpnki --server '.$this->config['API_URL'].' --username '. $this->config['API_USERNAME'].' --password '.$this->config['API_PASSWORD']);
-     sleep(2);
+     sleep(1);
      safe_exec('pon vpnki updetach');
+     setTimeout('ip_route_add',"safe_exec('ip route add 172.16.0.0/16 via 172.16.0.1');",3);
+
  }
  function disconnect() {
      safe_exec('poff vpnki');
+     safe_exec('ip route del 172.16.0.0');
  }
 
 /**
