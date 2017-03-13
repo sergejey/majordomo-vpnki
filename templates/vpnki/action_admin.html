@@ -1,0 +1,65 @@
+
+<!-- table zwave_devices search -->
+<div  id='api_settings'>
+<h2>Settings</h2>
+ [<a href="http://vpnki.ru" target="blank">More info...</a>]
+<form action="?" method="post" enctype="multipart/form-data" name="frmEdit" class="form-horizontal">
+<fieldset>
+<div class="form-group">
+ <label class="control-label"[#if ERR_API_URL#] style="color:red;font-weight:bold"[#endif#]>
+ Server:
+ (*)
+ </label>
+ <div class="controls">
+  <select name="api_url">
+   <option value="vpnki.ru"[#if  API_URL="vpnki.ru"#] selected[#endif#]>VPNKI.RU (Moscow)</option>
+   <option value="ams.vpnki.ru"[#if  API_URL="ams.vpnki.ru"#] selected[#endif#]>AMS.VPNKI.RU (Amsterdam)</option>
+  </select>
+  </div>
+</div>
+<div class="form-group">
+ <label class="control-label"[#if ERR_API_USERNAME#] style="color:red;font-weight:bold"[#endif#]>
+ Username:
+  (*)
+ </label>
+ <div class="controls"><input type="text" name="api_username" value="[#API_USERNAME#]" class="input"></div>
+</div>
+<div class="form-group">
+ <label class="control-label"[#if ERR_API_PASSWORD#] style="color:red;font-weight:bold"[#endif#]>
+ Password:
+  (*)
+ </label>
+ <div class="controls"><input type="password" name="api_password" value="[#API_PASSWORD#]" class="input"></div>
+</div>
+<div class="form-actions">
+<button type="submit" name="subm" value="Submit" class="btn btn-primary"><#LANG_UPDATE#></button>
+<input type="hidden" name="view_mode" value="update_settings">
+<input type="hidden" name="mode" value="update">
+</div>
+</fieldset>
+</form>
+</div>
+
+<div id="api_control">
+ <h2>VPN Control</h2>
+ <a href="?mode=connect" class="btn btn-default">Connect</a>
+ <a href="?mode=disconnect" class="btn btn-default">Disconnect</a>
+</div>
+
+<div id="api_status">
+ <script language="javascript">
+  var statusTimer;
+  function updateNetworkStatus() {
+   var url='<#ROOTHTML#>ajax/vpnki.html?op=status';
+   $.ajax({
+    url: url
+   }).done(function(data) {
+    $('#status_info').html(data);
+    statusTimer=setTimeout('updateNetworkStatus();',2000);
+   });
+  }
+  updateNetworkStatus();
+ </script>
+ <h2>Network status</h2>
+ <div id="status_info"></div>
+</div>
