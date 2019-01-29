@@ -1,65 +1,153 @@
+[#if ERR_MSG#]
+<div class="alert alert-danger">[#ERR_MSG#]</div>
+[#endif#]
 
-<!-- table zwave_devices search -->
-<div  id='api_settings'>
-<h2>Settings</h2>
- [<a href="http://vpnki.ru" target="blank">More info...</a>]
-<form action="?" method="post" enctype="multipart/form-data" name="frmEdit" class="form-horizontal">
-<fieldset>
-<div class="form-group">
- <label class="control-label"[#if ERR_API_URL#] style="color:red;font-weight:bold"[#endif#]>
- Server:
- (*)
- </label>
- <div class="controls">
-  <select name="api_url">
-   <option value="vpnki.ru"[#if  API_URL="vpnki.ru"#] selected[#endif#]>VPNKI.RU (Moscow)</option>
-   <option value="ams.vpnki.ru"[#if  API_URL="ams.vpnki.ru"#] selected[#endif#]>AMS.VPNKI.RU (Amsterdam)</option>
-  </select>
+[#if OK_MSG#]
+<div class="alert alert-success">[#OK_MSG#]</div>
+[#endif#]
+
+<div class="row">
+ <div class="col-md-6">
+
+  <ul class="nav nav-tabs">
+   <li[#if TAB=""#] class="active"[#endif#]><a href="?"><#LANG_GENERAL#></a></li>
+   <li[#if TAB="settings"#] class="active"[#endif#]><a href="?tab=settings"><#LANG_SECTION_SETTINGS#></a></li>
+   <li[#if TAB="service"#] class="active"[#endif#]><a href="?tab=service"><#LANG_GENERAL_SERVICE#></a></li>
+  </ul>
+
+  &nbsp;
+
+  [#if TAB=""#]
+
+  <div class="alert alert-info">
+   Пожалуйста, ознакомьтесь с описанием сервиса и правилами использования на веб-сайте
+   <a href="http://vpnki.ru" target="blank">VPNKI.RU</a>
   </div>
-</div>
-<div class="form-group">
- <label class="control-label"[#if ERR_API_USERNAME#] style="color:red;font-weight:bold"[#endif#]>
- Username:
-  (*)
- </label>
- <div class="controls"><input type="text" name="api_username" value="[#API_USERNAME#]" class="input"></div>
-</div>
-<div class="form-group">
- <label class="control-label"[#if ERR_API_PASSWORD#] style="color:red;font-weight:bold"[#endif#]>
- Password:
-  (*)
- </label>
- <div class="controls"><input type="password" name="api_password" value="[#API_PASSWORD#]" class="input"></div>
-</div>
-<div class="form-actions">
-<button type="submit" name="subm" value="Submit" class="btn btn-primary"><#LANG_UPDATE#></button>
-<input type="hidden" name="view_mode" value="update_settings">
-<input type="hidden" name="mode" value="update">
-</div>
-</fieldset>
-</form>
+
+  <div id="api_control">
+   <h2>VPN Control</h2>
+   <div class="panel">Установка VPN-соединения по заданным <a href="?tab=settings">настройкам</a>.</div>
+   <a href="?mode=connect" class="btn btn-default btn-primary">Connect</a>
+   <a href="?mode=disconnect" class="btn btn-default">Disconnect</a>
+  </div>
+
+  &nbsp;
+  <div id="api_control">
+   <h2>Quick Help</h2>
+   <div class="panel">Организация быстрого доступа к системе.</div>
+   [#if LATEST_HTTP_ADDRESS!=""#]
+   <div class="alert alert-info">Пожалуйста, имейте в виду, что публикация доступа к системе может занять несколько минут.</div>
+   <div>
+    System URL: <a href="http://[#LATEST_HTTP_ADDRESS#]:[#LATEST_HTTP_PORT#]" target="_blank">[#LATEST_HTTP_ADDRESS#]:[#LATEST_HTTP_PORT#]</a>
+   </div>
+   [#endif#]
+
+   [#if LATEST_SSH_ADDRESS!=""#]
+   <div>
+    System SSH: [#LATEST_SSH_ADDRESS#]:[#LATEST_SSH_PORT#]
+   </div>
+   [#endif#]
+
+   <form class="form" method="post" action="?">
+    <div class="form-group">
+     <label for="api_key">API key:</label>
+     <input type="text" id="api_key" name="api_key" value="[#API_KEY#]" class="form-control">
+    </div>
+    <div class="form-group">
+     <input type="submit" class="btn btn-default btn-primary" value="Connect">
+     <a href="?mode=qh_disconnect" class="btn btn-default">Disconnect</a>
+    </div>
+    <input type="hidden" name="mode" value="qh_connect">
+   </form>
+  </div>
+
+
+
+  [#endif TAB#]
+
+
+  [#if TAB="settings"#]
+  <!-- table zwave_devices search -->
+  <div id='api_settings'>
+   <form action="?" method="post" enctype="multipart/form-data" name="frmEdit" class="form-horizontal">
+    <fieldset>
+     <div class="form-group">
+      <label class="control-label"[#if ERR_API_URL#] style="color:red;font-weight:bold"[#endif#]>
+       VPN Server:
+       (*)
+      </label>
+      <div class="controls">
+       <select name="api_url" class="form-control">
+        <option value="vpnki.ru"[#if  API_URL="vpnki.ru"#] selected[#endif#]>VPNKI.RU (Moscow)</option>
+        <option value="ams.vpnki.ru"[#if  API_URL="ams.vpnki.ru"#] selected[#endif#]>AMS.VPNKI.RU (Amsterdam)</option>
+       </select>
+      </div>
+     </div>
+     <div class="form-group">
+      <label class="control-label"[#if ERR_API_USERNAME#] style="color:red;font-weight:bold"[#endif#]>
+       <#LANG_USERNAME#>:
+      </label>
+      <div class="controls"><input type="text" name="api_username" value="[#API_USERNAME#]"  class="form-control"></div>
+     </div>
+     <div class="form-group">
+      <label class="control-label"[#if ERR_API_PASSWORD#] style="color:red;font-weight:bold"[#endif#]>
+       <#LANG_PASSWORD#>:
+      </label>
+      <div class="controls"><input type="password" name="api_password" value="[#API_PASSWORD#]"  class="form-control"></div>
+     </div>
+     <div class="form-actions">
+      <button type="submit" name="subm" value="Submit" class="btn btn-primary"><#LANG_SUBMIT#></button>
+      <input type="hidden" name="view_mode" value="update_settings">
+      <input type="hidden" name="mode" value="update">
+      <input type="hidden" name="tab" value="<#TAB#>">
+     </div>
+    </fieldset>
+   </form>
+  </div>
+  [#endif TAB#]
+
+  [#if TAB="service"#]
+  <div class="dynamic_content" id="service_tab">
+   <table class="table">
+    <thead>
+    <tr>
+     <th>VPN type</th>
+     <th>Package version</th>
+    </tr>
+    </thead>
+    <tr>
+     <td><b>PPTP</b></td>
+     <td>[#if PPTP_INSTALLED!=""#]<font color="green">[#PPTP_INSTALLED#]</font>[#else#]<a href="?tab=<#TAB#>&mode=install_pptp" class="btn btn-default">Install</a>[#endif#]</td>
+    </tr>
+   </table>
+
+   <!--/dynamic_content--></div>
+  [#endif SERVICE#]
+
+
+ </div>
+ <div class="col-md-6">
+  <ul class="nav nav-tabs">
+   <li class="active"><a href="#">Network Status</a></li>
+  </ul>
+  &nbsp;
+  <div id="api_status">
+   <script language="javascript">
+    var statusTimer;
+    function updateNetworkStatus() {
+     var url='<#ROOTHTML#>ajax/vpnki.html?op=status';
+     $.ajax({
+      url: url
+     }).done(function(data) {
+      $('#status_info').html(data);
+      statusTimer=setTimeout('updateNetworkStatus();',2000);
+     });
+    }
+    updateNetworkStatus();
+   </script>
+   <div id="status_info"></div>
+  </div>
+ </div>
 </div>
 
-<div id="api_control">
- <h2>VPN Control</h2>
- <a href="?mode=connect" class="btn btn-default">Connect</a>
- <a href="?mode=disconnect" class="btn btn-default">Disconnect</a>
-</div>
 
-<div id="api_status">
- <script language="javascript">
-  var statusTimer;
-  function updateNetworkStatus() {
-   var url='<#ROOTHTML#>ajax/vpnki.html?op=status';
-   $.ajax({
-    url: url
-   }).done(function(data) {
-    $('#status_info').html(data);
-    statusTimer=setTimeout('updateNetworkStatus();',2000);
-   });
-  }
-  updateNetworkStatus();
- </script>
- <h2>Network status</h2>
- <div id="status_info"></div>
-</div>
