@@ -123,10 +123,10 @@ class vpnki extends module
     {
 
         if (gr('ok_msg')) {
-            $out['OK_MSG']=gr('ok_msg');
+            $out['OK_MSG'] = gr('ok_msg');
         }
         if (gr('err_msg')) {
-            $out['ERR_MSG']=gr('err_msg');
+            $out['ERR_MSG'] = gr('err_msg');
         }
 
         $out['API_URL'] = $this->config['API_URL'];
@@ -137,17 +137,19 @@ class vpnki extends module
         $out['LATEST_SSH_ADDRESS'] = $this->config['LATEST_SSH_ADDRESS'];
         $out['LATEST_SSH_PORT'] = $this->config['LATEST_SSH_PORT'];
         $out['API_KEY'] = $this->config['API_KEY'];
+        $out['API_TOKEN'] = $this->config['API_TOKEN'];
+        $out['API_PORT'] = $this->config['API_PORT'];
 
 
         $out['TAB'] = $this->tab;
 
-        if ($this->tab=='service') {
-            $tmp=(exec('dpkg -l pptp-linux|grep pptp-linux'));
-            if (preg_match('/^i/',$tmp)) {
-                $out['PPTP_INSTALLED']=$tmp;
+        if ($this->tab == 'service') {
+            $tmp = (exec('dpkg -l pptp-linux|grep pptp-linux'));
+            if (preg_match('/^i/', $tmp)) {
+                $out['PPTP_INSTALLED'] = $tmp;
             }
         }
-        if ($this->mode=='install_pptp') {
+        if ($this->mode == 'install_pptp') {
             $this->install_pptp($out);
         }
 
@@ -161,19 +163,23 @@ class vpnki extends module
             $this->redirect("?");
         }
 
-        if ($this->mode=='qh_connect') {
-            $this->config['API_KEY']=gr('api_key');
+        if ($this->mode == 'qh_connect') {
+            $this->config['API_TOKEN'] = gr('api_token');
+            $this->config['API_SERVICE'] = gr('api_service');
             $this->saveConfig();
             $this->qh_connect($out);
         }
 
-        if ($this->mode=='qh_disconnect') {
+        if ($this->mode == 'qh_disconnect') {
             $this->qh_disconnect($out);
+            $this->config['API_TOKEN']='';
+            $this->saveConfig();
             $this->redirect("?");
         }
 
-        if ($this->mode=='connect_saved') {
+        if ($this->mode == 'connect_saved') {
             $this->connect(1);
+            $out['OK_MSG']='Connecting...';
         }
 
         if ($this->view_mode == 'update_settings') {
@@ -186,14 +192,15 @@ class vpnki extends module
             $this->config['API_PASSWORD'] = $api_password;
             if ($ok) {
                 $this->saveConfig();
-                $this->redirect("?tab={$this->tab}&ok_msg=".urlencode(LANG_DATA_SAVED));
+                $this->redirect("?tab={$this->tab}&ok_msg=" . urlencode(LANG_DATA_SAVED));
             }
         }
     }
 
-    function install_pptp(&$out) {
+    function install_pptp(&$out)
+    {
         safe_exec('apt-get update && apt-get -y install pptp-linux');
-        $out['OK_MSG']='Installation command added to queue, please wait about 5 minutes.';
+        $out['OK_MSG'] = 'Installation command added to queue, please wait about 5 minutes.';
     }
 
     /**
@@ -212,7 +219,7 @@ class vpnki extends module
                 $data = implode("\n", $ret);
                 $data = preg_replace("/(\d+\.\d+\.\d+\.\d+)/uis", '<b>$1</b>', $data);
                 $data = str_replace("ppp0", '<b style="color:red">ppp0</b>', $data);
-                echo "<pre>System time: " .date('Y-m-d H:i:s')."\n\n". $data . "</pre>";
+                echo "<pre>System time: " . date('Y-m-d H:i:s') . "\n\n" . $data . "</pre>";
             }
             if ($op == 'connect') {
                 $this->connect();
@@ -226,16 +233,31 @@ class vpnki extends module
     }
 
 
-    function qh_disconnect(&$out) {
+    function qh_disconnect(&$out)
+    {
 
         $this->disconnect();
 
-        $api_key=$this->config['API_KEY'];
-        if (!$api_key) {
+        $api_key = $this->config['API_KEY'];
+        $api_token = $this->config['API_TOKEN'];
+
+        if (!$api_token) {
             return;
         }
 
+        if ($this->config['LATEST_HTTP_PORT'] || $this->config['LATEST_SSH_PORT']) {
+            $url = 'https://vpnki.ru/index.php?option=com_api&format=raw&app=webservices&resource=token&key=partner&token=' . $api_token . '&action=delete';
+            $reply = getURL($url);
+            $data = json_decode($reply, true);
+            DebMes($url . "\n" . $reply, 'vpnki');
+            $this->config['LATEST_HTTP_ADDRESS'] = '';
+            $this->config['LATEST_HTTP_PORT'] = '';
+            $this->config['LATEST_SSH_ADDRESS'] = '';
+            $this->config['LATEST_SSH_PORT'] = '';
+        }
+        //
 
+        /*
         if ($this->config['LATEST_HTTP_PORT']) {
             $url = 'https://vpnki.ru/index.php?option=com_api&format=raw&app=webservices&resource=port&action=remove&port='.$this->config['LATEST_HTTP_PORT'].'&key='.urlencode($api_key);
             $remove_port=getURL($url);
@@ -259,122 +281,156 @@ class vpnki extends module
             $this->config['LATEST_TUNNEL_IP']='';
             $this->config['LATEST_TUNNEL_NAME']='';
         }
-        $this->config['LATEST_CONNECT_USERNAME']='';
-        $this->config['LATEST_CONNECT_PASSWORD']='';
-        
+        */
+        $this->config['LATEST_CONNECT_USERNAME'] = '';
+        $this->config['LATEST_CONNECT_PASSWORD'] = '';
+
         $this->saveConfig();
     }
 
-    function qh_connect(&$out) {
-        $api_key=$this->config['API_KEY'];
-        if (!$api_key) {
+    function qh_connect(&$out)
+    {
+        $api_token = $this->config['API_TOKEN'];
+        if (!$api_token) {
+            return;
+        }
+        $this->qh_disconnect($out);
+
+        $int_port = (int)$this->config['API_PORT'];
+        if (!$int_port) {
+            $int_port=22;
+        }
+
+        // STEP 0. Token status
+        $url = 'https://vpnki.ru/index.php?option=com_api&format=raw&app=webservices&resource=token&key=partner&token=' . $api_token . '&action=status';
+        $reply = getURL($url);
+        $data = json_decode($reply, true);
+        DebMes($url . "\n" . $reply, 'vpnki');
+        if ($data['status'] != 'not active') {
+            $out['ERR_MSG'] = 'Incorrect token status: ' . $data['token'].' - '.$data['status'];
             return;
         }
 
-        $this->qh_disconnect($out);
+        // STEP 1. Get tunnel data
+        $url = 'https://vpnki.ru/index.php?option=com_api&format=raw&app=webservices&resource=token&key=partner&token=' . $api_token . '&port='.$int_port.'&action=activate';
+        $reply = getURL($url);
+        $data = json_decode($reply, true);
+        DebMes($url . "\n" . $reply, 'vpnki');
+        $this->config['LATEST_TUNNEL_IP'] = $data['internal_ip']; //
+        $this->config['LATEST_TUNNEL_NAME'] = $data['end_datetime'];
+        $this->config['LATEST_CONNECT_USERNAME'] = $data['username'];
+        $this->config['LATEST_CONNECT_PASSWORD'] = $data['password'];
+
+        if ($int_port=='22') {
+            $this->config['LATEST_SSH_ADDRESS'] = $data['external_ip'];
+            $this->config['LATEST_SSH_PORT'] = $data['external_port'];
+        } else {
+            $this->config['LATEST_HTTP_ADDRESS'] = $data['external_ip'];
+            $this->config['LATEST_HTTP_PORT'] = $data['external_port'];
+        }
+        $this->saveConfig();
+
+        //dprint($data);
+
+        /*
         //
         // STEP 1. New tunnel
-        $url = 'https://vpnki.ru/index.php?option=com_api&format=raw&app=webservices&resource=add_tunnel&key='.urlencode($api_key);
-        $new_tunnel=getURL($url);
-        DebMes($url."\n".$new_tunnel,'vpnki');
-        $new_tunnel_data=json_decode($new_tunnel,true);
+        $url = 'https://vpnki.ru/index.php?option=com_api&format=raw&app=webservices&resource=add_tunnel&key=' . urlencode($api_key);
+        $new_tunnel = getURL($url);
+        DebMes($url . "\n" . $new_tunnel, 'vpnki');
+        $new_tunnel_data = json_decode($new_tunnel, true);
 
         $new_tunnel_ip = $new_tunnel_data['vpnki_address'];
-        $this->config['LATEST_TUNNEL_IP']=$new_tunnel_data['vpnki_address'];
-        $this->config['LATEST_TUNNEL_NAME']=$new_tunnel_data['comment'];
-        $this->config['LATEST_CONNECT_USERNAME']=$new_tunnel_data['login'];
-        $this->config['LATEST_CONNECT_PASSWORD']=$new_tunnel_data['password'];
+        $this->config['LATEST_TUNNEL_IP'] = $new_tunnel_data['vpnki_address'];
+        $this->config['LATEST_TUNNEL_NAME'] = $new_tunnel_data['comment'];
+        $this->config['LATEST_CONNECT_USERNAME'] = $new_tunnel_data['login'];
+        $this->config['LATEST_CONNECT_PASSWORD'] = $new_tunnel_data['password'];
         $this->saveConfig();
 
         if (!$this->config['LATEST_TUNNEL_IP']) {
             if ($new_tunnel_data['add error']) {
-                $out['ERR_MSG']='Error: '.$new_tunnel_data['add error'];
+                $out['ERR_MSG'] = 'Error: ' . $new_tunnel_data['add error'];
             } else {
-                $out['ERR_MSG']='Error: '.$new_tunnel_data['message'];
+                $out['ERR_MSG'] = 'Error: ' . $new_tunnel_data['message'];
             }
             return;
         }
 
         // STEP 2.1 Port publishing (80)
         $port = 80;
-        $url = 'https://vpnki.ru/index.php?option=com_api&format=raw&app=webservices&resource=port&action=add&inip='.urlencode($new_tunnel_ip).'&inport='.$port.'&key='.urlencode($api_key);
+        $url = 'https://vpnki.ru/index.php?option=com_api&format=raw&app=webservices&resource=port&action=add&inip=' . urlencode($new_tunnel_ip) . '&inport=' . $port . '&key=' . urlencode($api_key);
         $forward_request = getURL($url);
-        DebMes($url."\n".$forward_request,'vpnki');
-        $forward_request_data = json_decode($forward_request,true);
-
-        //dprint($url,false);
-        //dprint($forward_request_data,false);
+        DebMes($url . "\n" . $forward_request, 'vpnki');
+        $forward_request_data = json_decode($forward_request, true);
         if (!$forward_request_data['address']) {
-            $out['ERR_MSG'].='<br/>Error: '.$forward_request_data['error'];
+            $out['ERR_MSG'] .= '<br/>Error: ' . $forward_request_data['error'];
         }
         $http_address = $forward_request_data['address'];
         $http_port = $forward_request_data['port'];
         if ($http_address && $http_port) {
-            $this->config['LATEST_HTTP_ADDRESS']=$http_address;
-            $this->config['LATEST_HTTP_PORT']=$http_port;
+            $this->config['LATEST_HTTP_ADDRESS'] = $http_address;
+            $this->config['LATEST_HTTP_PORT'] = $http_port;
         } else {
-            $this->config['LATEST_HTTP_ADDRESS']='';
-            $this->config['LATEST_HTTP_PORT']='';
+            $this->config['LATEST_HTTP_ADDRESS'] = '';
+            $this->config['LATEST_HTTP_PORT'] = '';
         }
         $this->saveConfig();
 
         // STEP 2.2 Port publishing (22)
         $port = 22;
-        $url ='https://vpnki.ru/index.php?option=com_api&format=raw&app=webservices&resource=port&action=add&inip='.urlencode($new_tunnel_ip).'&inport='.$port.'&key='.urlencode($api_key);
+        $url = 'https://vpnki.ru/index.php?option=com_api&format=raw&app=webservices&resource=port&action=add&inip=' . urlencode($new_tunnel_ip) . '&inport=' . $port . '&key=' . urlencode($api_key);
         $forward_request = getURL($url);
-        DebMes($url."\n".$forward_request,'vpnki');
-        $forward_request_data = json_decode($forward_request,true);
-        //dprint($url,false);
-        //dprint($forward_request_data,false);
+        DebMes($url . "\n" . $forward_request, 'vpnki');
+        $forward_request_data = json_decode($forward_request, true);
         if (!$forward_request_data['address']) {
-            $out['ERR_MSG'].='<br/>Error: '.$forward_request_data['error'];
+            $out['ERR_MSG'] .= '<br/>Error: ' . $forward_request_data['error'];
         }
         $ssh_address = $forward_request_data['address'];
         $ssh_port = $forward_request_data['port'];
         if ($ssh_address && $ssh_port) {
-            $this->config['LATEST_SSH_ADDRESS']=$ssh_address;
-            $this->config['LATEST_SSH_PORT']=$ssh_port;
+            $this->config['LATEST_SSH_ADDRESS'] = $ssh_address;
+            $this->config['LATEST_SSH_PORT'] = $ssh_port;
         } else {
-            $this->config['LATEST_SSH_ADDRESS']='';
-            $this->config['LATEST_SSH_PORT']='';
+            $this->config['LATEST_SSH_ADDRESS'] = '';
+            $this->config['LATEST_SSH_PORT'] = '';
         }
         $this->saveConfig();
+        */
 
-        if ($http_address) {
+        if ($this->config['LATEST_HTTP_ADDRESS'] || $this->config['LATEST_SSH_ADDRESS']) {
             $this->redirect("?mode=connect_saved");
         }
-        //{"action":"Added successfully","address":"193.232.49.4","port":"26033"}
     }
 
-    function connect($saved=0)
+    function connect($saved = 0)
     {
 
         if ($saved) {
-            $username=$this->config['LATEST_CONNECT_USERNAME'];
-            $password=$this->config['LATEST_CONNECT_PASSWORD'];
-            $server=$this->config['API_URL'];
+            $username = $this->config['LATEST_CONNECT_USERNAME'];
+            $password = $this->config['LATEST_CONNECT_PASSWORD'];
+            $server = $this->config['API_URL'];
         } else {
-            $username=$this->config['API_USERNAME'];
-            $password=$this->config['API_PASSWORD'];
-            $server=$this->config['API_URL'];
+            $username = $this->config['API_USERNAME'];
+            $password = $this->config['API_PASSWORD'];
+            $server = $this->config['API_URL'];
         }
 
         if (!$server) {
-            $server='vpnki.ru';
+            $server = 'vpnki.ru';
         }
 
-        $cmd='sudo pptpsetup --delete vpnki';
-        debmes($cmd,'vpnki');
+        $cmd = 'sudo pptpsetup --delete vpnki';
+        debmes($cmd, 'vpnki');
         safe_exec($cmd);
-        $cmd='sudo pptpsetup --create vpnki --server ' . $server . ' --username ' . $username . ' --password ' . $password;
-        debmes($cmd,'vpnki');
+        $cmd = 'sudo pptpsetup --create vpnki --server ' . $server . ' --username ' . $username . ' --password ' . $password;
+        debmes($cmd, 'vpnki');
         safe_exec($cmd);
         sleep(1);
-        $cmd='sudo pon vpnki updetach';
-        debmes($cmd,'vpnki');
+        $cmd = 'sudo pon vpnki updetach';
+        debmes($cmd, 'vpnki');
         safe_exec($cmd);
-        $cmd='sudo ip route add 172.16.0.0/16 via 172.16.0.1';
-        debmes($cmd,'vpnki');
+        $cmd = 'sudo ip route add 172.16.0.0/16 via 172.16.0.1';
+        debmes($cmd, 'vpnki');
         setTimeout('ip_route_add', "safe_exec('$cmd');", 3);
 
     }
