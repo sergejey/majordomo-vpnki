@@ -139,6 +139,7 @@ class vpnki extends module
         $out['API_KEY'] = $this->config['API_KEY'];
         $out['API_TOKEN'] = $this->config['API_TOKEN'];
         $out['API_PORT'] = $this->config['API_PORT'];
+        $out['API_TYPE'] = $this->config['API_TYPE'];
 
 
         $out['TAB'] = $this->tab;
@@ -148,9 +149,16 @@ class vpnki extends module
             if (preg_match('/^i/', $tmp)) {
                 $out['PPTP_INSTALLED'] = $tmp;
             }
+            $tmp = (exec('dpkg -l openvpn|grep openvpn'));
+            if (preg_match('/^i/', $tmp)) {
+                $out['OPENVPN_INSTALLED'] = $tmp;
+            }
         }
         if ($this->mode == 'install_pptp') {
             $this->install_pptp($out);
+        }
+        if ($this->mode == 'install_openvpn') {
+            $this->install_openvpn($out);
         }
 
         if ($this->mode == 'connect' && $out['API_URL'] && $out['API_USERNAME'] && $out['API_PASSWORD']) {
@@ -166,12 +174,14 @@ class vpnki extends module
         if ($this->mode == 'qh_connect') {
             $this->config['API_TOKEN'] = gr('api_token');
             $this->config['API_SERVICE'] = gr('api_service');
+            $this->config['API_TYPE'] = gr('api_type');
+            $this->config['API_PORT'] = gr('api_port');
             $this->saveConfig();
             $this->qh_connect($out);
         }
 
         if ($this->mode == 'qh_disconnect') {
-            $this->qh_disconnect($out);
+            $this->qh_disconnect($out,1);
             $this->config['API_TOKEN']='';
             $this->saveConfig();
             $this->redirect("?");
@@ -186,6 +196,10 @@ class vpnki extends module
             $ok = 1;
             global $api_url;
             $this->config['API_URL'] = $api_url;
+
+            global $api_type;
+            $this->config['API_TYPE'] = $api_type;
+
             global $api_username;
             $this->config['API_USERNAME'] = $api_username;
             global $api_password;
@@ -200,7 +214,13 @@ class vpnki extends module
     function install_pptp(&$out)
     {
         safe_exec('apt-get update && apt-get -y install pptp-linux');
-        $out['OK_MSG'] = 'Installation command added to queue, please wait about 5 minutes.';
+        $out['OK_MSG'] = 'PPTP installation command added to queue, please wait about 5 minutes.';
+    }
+
+    function install_openvpn(&$out)
+    {
+        safe_exec('apt-get update && apt-get -y install openvpn');
+        $out['OK_MSG'] = 'OpenVPN installation command added to queue, please wait about 5 minutes.';
     }
 
     /**
@@ -233,7 +253,7 @@ class vpnki extends module
     }
 
 
-    function qh_disconnect(&$out)
+    function qh_disconnect(&$out, $delete = 0)
     {
 
         $this->disconnect();
@@ -246,42 +266,18 @@ class vpnki extends module
         }
 
         if ($this->config['LATEST_HTTP_PORT'] || $this->config['LATEST_SSH_PORT']) {
-            $url = 'https://vpnki.ru/index.php?option=com_api&format=raw&app=webservices&resource=token&key=partner&token=' . $api_token . '&action=delete';
-            $reply = getURL($url);
-            $data = json_decode($reply, true);
-            DebMes($url . "\n" . $reply, 'vpnki');
+            if ($delete) {
+                $url = 'https://vpnki.ru/index.php?option=com_api&format=raw&app=webservices&resource=token&key=partner&token=' . $api_token . '&action=delete';
+                $reply = getURL($url);
+                $data = json_decode($reply, true);
+                DebMes($url . "\n" . $reply, 'vpnki');
+
+            }
             $this->config['LATEST_HTTP_ADDRESS'] = '';
             $this->config['LATEST_HTTP_PORT'] = '';
             $this->config['LATEST_SSH_ADDRESS'] = '';
             $this->config['LATEST_SSH_PORT'] = '';
         }
-        //
-
-        /*
-        if ($this->config['LATEST_HTTP_PORT']) {
-            $url = 'https://vpnki.ru/index.php?option=com_api&format=raw&app=webservices&resource=port&action=remove&port='.$this->config['LATEST_HTTP_PORT'].'&key='.urlencode($api_key);
-            $remove_port=getURL($url);
-            DebMes($url."\n".$remove_port,'vpnki');
-            $this->config['LATEST_HTTP_ADDRESS']='';
-            $this->config['LATEST_HTTP_PORT']='';
-        }
-        if ($this->config['LATEST_SSH_PORT']) {
-            $url = 'https://vpnki.ru/index.php?option=com_api&format=raw&app=webservices&resource=port&action=remove&port='.$this->config['LATEST_SSH_PORT'].'&key='.urlencode($api_key);
-            $remove_port=getURL($url);
-            DebMes($url."\n".$remove_port,'vpnki');
-            $this->config['LATEST_SSH_ADDRESS']='';
-            $this->config['LATEST_SSH_PORT']='';
-        }
-
-        $tunnel_name=$this->config['LATEST_TUNNEL_NAME'];
-        if ($tunnel_name!='') {
-            $url = 'https://vpnki.ru/index.php?option=com_api&format=raw&app=webservices&resource=del_tunnel&tunnel='.urlencode($tunnel_name).'&key='.urlencode($api_key);
-            $remove_tunnel=getURL($url);
-            DebMes($url."\n".$remove_tunnel,'vpnki');
-            $this->config['LATEST_TUNNEL_IP']='';
-            $this->config['LATEST_TUNNEL_NAME']='';
-        }
-        */
         $this->config['LATEST_CONNECT_USERNAME'] = '';
         $this->config['LATEST_CONNECT_PASSWORD'] = '';
 
@@ -300,6 +296,7 @@ class vpnki extends module
         if (!$int_port) {
             $int_port=22;
         }
+
 
         // STEP 0. Token status
         $url = 'https://vpnki.ru/index.php?option=com_api&format=raw&app=webservices&resource=token&key=partner&token=' . $api_token . '&action=status';
@@ -409,34 +406,89 @@ class vpnki extends module
             $username = $this->config['LATEST_CONNECT_USERNAME'];
             $password = $this->config['LATEST_CONNECT_PASSWORD'];
             $server = $this->config['API_URL'];
+            $type = $this->config['API_TYPE'];
+            $token = $this->config['API_TOKEN'];
         } else {
             $username = $this->config['API_USERNAME'];
             $password = $this->config['API_PASSWORD'];
             $server = $this->config['API_URL'];
+            $type = $this->config['API_TYPE'];
         }
 
         if (!$server) {
             $server = 'vpnki.ru';
         }
 
-        $cmd = 'sudo pptpsetup --delete vpnki';
-        debmes($cmd, 'vpnki');
-        safe_exec($cmd);
-        $cmd = 'sudo pptpsetup --create vpnki --server ' . $server . ' --username ' . $username . ' --password ' . $password;
-        debmes($cmd, 'vpnki');
-        safe_exec($cmd);
-        sleep(1);
-        $cmd = 'sudo pon vpnki updetach';
-        debmes($cmd, 'vpnki');
-        safe_exec($cmd);
-        $cmd = 'sudo ip route add 172.16.0.0/16 via 172.16.0.1';
-        debmes($cmd, 'vpnki');
-        setTimeout('ip_route_add', "safe_exec('$cmd');", 3);
+        if ($type=='' || $type=='pptp') {
+            $cmd = 'sudo pptpsetup --delete vpnki';
+            debmes($cmd, 'vpnki');
+            safe_exec($cmd);
+            $cmd = 'sudo pptpsetup --create vpnki --server ' . $server . ' --username ' . $username . ' --password ' . $password;
+            debmes($cmd, 'vpnki');
+            safe_exec($cmd);
+            sleep(1);
+            $cmd = 'sudo pon vpnki updetach';
+            debmes($cmd, 'vpnki');
+            safe_exec($cmd);
+            $cmd = 'sudo ip route add 172.16.0.0/16 via 172.16.0.1';
+            debmes($cmd, 'vpnki');
+            setTimeout('ip_route_add', "safe_exec('$cmd');", 3);
+        } elseif ($type=='openvpn') {
+            //$url="https://vpnki.ru/index.php?option=com_api&format=raw&app=webservices&resource=ovpn&action=add&key=$key";
+            if ($token=='') {
+                dprint("Token is not set");
+                return false;
+            }
+            $url="https://vpnki.ru/index.php?option=com_api&format=raw&app=webservices&resource=token&key=partner&token=$token&action=ovpn";
+            $ovpn=getURL($url);
+            $object=json_decode($ovpn);
+
+            $conf_path=__DIR__.'/../../cached';
+
+            if (is_object($object)) {
+                $file_content=$object->file_content;
+                SaveFile($conf_path.'/vpnki.conf',$file_content.PHP_EOL);
+            } else {
+                dprint("cannot get openvpn data: ".$ovpn);
+                return false;
+            }
+
+            $text = <<<TEXT
+$username
+$password
+TEXT;
+            SaveFile($conf_path.'/vpnki_login',$text.PHP_EOL);
+
+            $text = <<<TEXT
+auth-user-pass $conf_path/vpnki_login
+<ca>
+TEXT;
+            $str = LoadFile($conf_path.'/vpnki.conf');
+            $oldMessage = "<ca>";
+
+            function lreplace($search, $replace, $subject){
+                $pos = strrpos($subject, $search);
+                if($pos !== false){
+                    $subject = substr_replace($subject, $replace, $pos, strlen($search));
+                }
+                return $subject;
+            }
+            $str = lreplace($oldMessage, $text, $str);
+            SaveFile($conf_path.'/vpnki.conf',$str);
+
+            $cmd="sudo openvpn --config ".$conf_path."/vpnki.conf --daemon";
+            safe_exec($cmd);
+            debmes($cmd, 'vpnki');
+            //dprint('OpenVPN connection is under construction...',false);
+            //dprint($str);
+        }
+
 
     }
 
     function disconnect()
     {
+        safe_exec('sudo killall openvpn');
         safe_exec('sudo poff vpnki');
         safe_exec('sudo ip route del 172.16.0.0');
     }

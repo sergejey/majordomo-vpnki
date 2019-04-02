@@ -62,6 +62,14 @@
     </div>
 
     <div class="form-group">
+     <label for="api_type">Тип соединения:</label>
+     <select name="api_type" id="api_type" class="form-control">
+      <option value="pptp"[#if API_TYPE="pptp"#] selected[#endif#]>PPTP</option>
+      <option value="openvpn"[#if API_TYPE="openvpn"#] selected[#endif#]>OpenVPN</option>
+     </select>
+    </div>
+
+    <div class="form-group">
      <input type="submit" class="btn btn-default btn-primary" value="Connect">
      <a href="?mode=qh_disconnect" class="btn btn-default">Disconnect</a>
     </div>
@@ -103,6 +111,15 @@
       </label>
       <div class="controls"><input type="password" name="api_password" value="[#API_PASSWORD#]"  class="form-control"></div>
      </div>
+     <div class="form-group">
+      <label class="control-label">
+       VPN <#LANG_TYPE#>:
+      </label>
+      <div class="controls">
+       <input type="radio" name="api_type" value="pptp"[#if API_TYPE!="openvpn"#] checked[#endif#]> PPTP
+       <input type="radio" name="api_type" value="openvpn"[#if API_TYPE="openvpn"#] checked[#endif#]> OpenVPN
+      </div>
+     </div>
      <div class="form-actions">
       <button type="submit" name="subm" value="Submit" class="btn btn-primary"><#LANG_SUBMIT#></button>
       <input type="hidden" name="view_mode" value="update_settings">
@@ -126,6 +143,10 @@
     <tr>
      <td><b>PPTP</b></td>
      <td>[#if PPTP_INSTALLED!=""#]<font color="green">[#PPTP_INSTALLED#]</font>[#else#]<a href="?tab=<#TAB#>&mode=install_pptp" class="btn btn-default">Install</a>[#endif#]</td>
+    </tr>
+    <tr>
+     <td><b>OpenVPN</b></td>
+     <td>[#if OPENVPN_INSTALLED!=""#]<font color="green">[#OPENVPN_INSTALLED#]</font>[#else#]<a href="?tab=<#TAB#>&mode=install_openvpn" class="btn btn-default">Install</a>[#endif#]</td>
     </tr>
    </table>
 
