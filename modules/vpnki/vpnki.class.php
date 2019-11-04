@@ -436,6 +436,7 @@ class vpnki extends module
         } elseif ($type=='openvpn') {
             //$url="https://vpnki.ru/index.php?option=com_api&format=raw&app=webservices&resource=ovpn&action=add&key=$key";
             if ($token=='') {
+                DebMes("Token is not set",'vpnki');
                 dprint("Token is not set");
                 return false;
             }
@@ -448,8 +449,10 @@ class vpnki extends module
             if (is_object($object)) {
                 $file_content=$object->file_content;
                 SaveFile($conf_path.'/vpnki.conf',$file_content.PHP_EOL);
+                DebMes("Conf file received: ".$conf_path.'/vpnki.conf','vpnki');
             } else {
                 dprint("cannot get openvpn data: ".$ovpn);
+                DebMes('Cannot get OpenVPN data: '.$ovpn,'vpnki');
                 return false;
             }
 
@@ -458,6 +461,7 @@ $username
 $password
 TEXT;
             SaveFile($conf_path.'/vpnki_login',$text.PHP_EOL);
+            DebMes('Login saved to: '.$conf_path.'/vpnki_login','vpnki');
 
             $text = <<<TEXT
 auth-user-pass $conf_path/vpnki_login
@@ -475,6 +479,8 @@ TEXT;
             }
             $str = lreplace($oldMessage, $text, $str);
             SaveFile($conf_path.'/vpnki.conf',$str);
+
+            DebMes('Conf file updated: '.$conf_path.'/vpnki.conf','vpnki');
 
             $cmd = "sudo killall openvpn";
             debmes($cmd, 'vpnki');
