@@ -288,9 +288,10 @@ class vpnki extends module
     {
         $api_token = $this->config['API_TOKEN'];
         if (!$api_token) {
+            DebMes("API Token is not set",'vpnki');
             return;
         }
-        $this->qh_disconnect($out);
+        //$this->qh_disconnect($out);
 
         $int_port = (int)$this->config['API_PORT'];
         if (!$int_port) {
@@ -414,6 +415,8 @@ class vpnki extends module
             $server = $this->config['API_URL'];
             $type = $this->config['API_TYPE'];
         }
+
+        DebMes("Trying to connect with: ".json_encode($this->config),'vpnki');
 
         if (!$server) {
             $server = 'vpnki.ru';
