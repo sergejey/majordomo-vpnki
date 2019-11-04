@@ -303,7 +303,7 @@ class vpnki extends module
         $reply = getURL($url);
         $data = json_decode($reply, true);
         DebMes($url . "\n" . $reply, 'vpnki');
-        if ($data['status'] != 'not active') {
+        if ($data['status'] != 'not active' && $data['status']!='active') {
             $out['ERR_MSG'] = 'Incorrect token status: ' . $data['token'].' - '.$data['status'];
             return;
         }
@@ -476,9 +476,12 @@ TEXT;
             $str = lreplace($oldMessage, $text, $str);
             SaveFile($conf_path.'/vpnki.conf',$str);
 
-            $cmd="sudo openvpn --config ".$conf_path."/vpnki.conf --daemon";
-            safe_exec($cmd);
+            $cmd = "sudo killall openvpn";
             debmes($cmd, 'vpnki');
+            safe_exec($cmd);
+            $cmd="sudo openvpn --config ".$conf_path."/vpnki.conf --daemon";
+            debmes($cmd, 'vpnki');
+            safe_exec($cmd);
             //dprint('OpenVPN connection is under construction...',false);
             //dprint($str);
         }
