@@ -447,7 +447,7 @@ class vpnki extends module
             $ovpn=getURL($url);
             $object=json_decode($ovpn);
 
-            $conf_path=__DIR__.'/../../cached';
+            $conf_path=ROOT.'cms/cached';
 
             if (is_object($object)) {
                 $file_content=$object->file_content;
@@ -488,7 +488,7 @@ TEXT;
             $cmd = "sudo killall openvpn";
             debmes($cmd, 'vpnki');
             safe_exec($cmd);
-            $cmd="sudo openvpn --config ".$conf_path."/vpnki.conf --daemon";
+            $cmd="sudo openvpn --config ".$conf_path."/vpnki.conf --daemon>".$conf_path.'/vpnki.log';
             debmes($cmd, 'vpnki');
             safe_exec($cmd);
             //dprint('OpenVPN connection is under construction...',false);
